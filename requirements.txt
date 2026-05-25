@@ -1,4 +1,8 @@
 playwright>=1.45.0
+pytest
+pytest-playwright
+selenium
+webdriver-manager
 rich==13.7.1
 chromadb
 beautifulsoup4==4.12.3
