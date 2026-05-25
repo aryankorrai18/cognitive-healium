@@ -1,0 +1,10 @@
+Set-Content -Path ".gitignore" -Value @"
+data/
+static/screenshots/
+reports/
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+healing_report.html
+"@

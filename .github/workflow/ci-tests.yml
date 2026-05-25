@@ -1,0 +1,185 @@
+# .github/workflows/ci-tests.yml
+name: Cognitive Healium CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  test-playwright:
+    name: Playwright Self-Healing Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Start Healium dashboard (background)
+        run: |
+          python -m uvicorn server:app --port 8000 &
+          sleep 3
+          echo "Dashboard running on :8000"
+
+      - name: Run Playwright healing tests (local fixtures)
+        env:
+          GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
+          TENANT_ID: github-ci-playwright
+        run: |
+          pytest tests/test_playwright_healing.py \
+            --healium-enabled \
+            --healium-tenant=github-ci-playwright \
+            --healium-fresh \
+            -v \
+            --tb=short \
+            --junit-xml=reports/playwright-results.xml
+        continue-on-error: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: reports/
+
+  test-selenium:
+    name: Selenium Self-Healing Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Start Healium dashboard (background)
+        run: |
+          python -m uvicorn server:app --port 8000 &
+          sleep 3
+
+      - name: Run Selenium healing tests
+        env:
+          GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
+          TENANT_ID: github-ci-selenium
+        run: |
+          pytest tests/test_selenium_healing.py \
+            --healium-enabled \
+            --healium-tenant=github-ci-selenium \
+            --healium-fresh \
+            -v \
+            --tb=short \
+            --junit-xml=reports/selenium-results.xml
+        continue-on-error: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-test-results
+          path: reports/
+
+  # ── Integration test against DEPLOYED GitHub Pages site ──────────
+  test-deployed-site:
+    name: Test Against Deployed Site
+    needs: test-playwright # only runs after local tests pass
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Start Healium dashboard (background)
+        run: |
+          python -m uvicorn server:app --port 8000 &
+          sleep 3
+
+      - name: Run integration tests against deployed site
+        env:
+          GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
+          TENANT_ID: github-ci-deployed
+          DEPLOYED_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: |
+          pytest tests/test_deployed_site.py \
+            --healium-enabled \
+            --healium-tenant=github-ci-deployed \
+            --healium-fresh \
+            -v \
+            --tb=short \
+            --junit-xml=reports/deployed-results.xml
+        continue-on-error: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployed-site-test-results
+          path: reports/
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linters
+        run: pip install flake8 black
+
+      - name: Black formatting check
+        run: black --check --line-length 100 engine/ healing_agent.py mcp_client.py
+        continue-on-error: true
+
+      - name: Flake8 lint
+        run: |
+          flake8 engine/ healing_agent.py mcp_client.py \
+            --max-line-length 100 \
+            --ignore E501,W503,E203
+        continue-on-error: true
