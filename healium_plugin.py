@@ -2,20 +2,12 @@
 healium_plugin.py
 
 pytest plugin for Cognitive Healium.
-Registers itself automatically when listed in conftest.py:
-
-    # tests/conftest.py
-    pytest_plugins = ["healium_plugin"]
+Registers itself automatically when listed in conftest.py.
 
 CLI flags:
     --healium-enabled       activate self-healing
     --healium-tenant=NAME   isolate ChromaDB collection (default: pytest-session)
     --healium-fresh         wipe ChromaDB before the run (clean-slate demo)
-
-Fixtures provided:
-    healium_memory          shared HealiumMemory (session-scoped)
-    healing_page            SelfHealingPage wrapping a pytest-playwright `page`
-    healing_driver_factory  factory -> SelfHealingDriver wrapping any Selenium driver
 """
 
 import shutil
@@ -106,45 +98,3 @@ def healing_page(page, _healium_enabled, healium_memory, healium_providers):
             f"Healium [playwright | {hp.tenant_id}]: "
             f"{healed}/{len(hp.healing_events)} locators auto-healed"
         )
-
-
-@pytest.fixture
-def healing_driver_factory(_healium_enabled, healium_memory, healium_providers):
-    from engine.selenium_wrapper import SelfHealingDriver
-    cache, storage, event_store = healium_providers or (None, None, None)
-    created: list = []
-
-    def factory(driver, tenant_id: str = None):
-        h = SelfHealingDriver(
-            driver           = driver,
-            memory           = healium_memory,
-            tenant_id        = tenant_id or (
-                healium_memory.tenant_id if healium_memory else "default"
-            ),
-            cache_provider   = cache,
-            storage_provider = storage,
-            event_store      = event_store,
-        )
-        created.append(h)
-        return h
-
-    yield factory
-
-    for h in created:
-        if h.healing_events:
-            healed = sum(1 for e in h.healing_events if e.status == "healed")
-            logger.info(
-                f"Healium [selenium | {h.tenant_id}]: "
-                f"{healed}/{len(h.healing_events)} locators auto-healed"
-            )
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_call(item):
-    yield
-    for fixture_name in ("healing_page",):
-        val = item.funcargs.get(fixture_name)
-        if val and hasattr(val, "healing_events") and val.healing_events:
-            healed = sum(1 for e in val.healing_events if e.status == "healed")
-            item.user_properties.append(("healium_total",  len(val.healing_events)))
-            item.user_properties.append(("healium_healed", healed))

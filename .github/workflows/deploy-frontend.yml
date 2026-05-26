@@ -1,4 +1,3 @@
-# .github/workflows/deploy-frontend.yml
 name: Deploy Frontend to GitHub Pages
 
 on:

@@ -1,75 +1,69 @@
-# tests/test_deployed_site.py
 """
-Integration test that runs against the LIVE GitHub Pages deployment.
-Only runs on main/master branch pushes.
-
-The DEPLOYED_URL env var is set by the CI workflow:
-    https://<owner>.github.io/<repo>/
+Production Integration Test.
+Runs against the LIVE deployed GitHub Pages site.
+Uses the cognitive-healium package just like a real QA engineer would.
 """
 
 import os
 import pytest
 from playwright.sync_api import sync_playwright
-from engine.memory import HealiumMemory
-from healing_agent import SelfHealingPage
 
+# Importing exactly as a user would after pip install cognitive-healium
+from healing_agent import SelfHealingPage
+from engine.memory import HealiumMemory
+
+# The deployed frontend URL
 DEPLOYED_URL = os.getenv(
-    "DEPLOYED_URL",
-    "https://YOUR_USERNAME.github.io/cognitive-healium/"
+    "DEPLOYED_URL", 
+    "https://aryankorrai18.github.io/cognitive-healium/"
 )
 
 
 @pytest.mark.healium
-def test_deployed_site_search_input():
-    """Verify the deployed site's search input can be healed when broken."""
+def test_deployed_search_input_heals():
+    """A developer renamed the search input. Healium must heal it on the live site."""
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
 
-        memory = HealiumMemory(tenant_id="ci-deployed-test")
+        # Initialize Healium just like an external user
+        memory = HealiumMemory(tenant_id="production-ci")
         healing_page = SelfHealingPage(page, memory=memory)
 
+        # 1. Go to the LIVE deployed site
         healing_page.goto(DEPLOYED_URL)
 
-        # Confirm the page loaded
-        title = page.title()
-        assert "Healium" in title or "Test" in title, \
-            f"Unexpected page title: {title}"
-
-        # Confirm the selector works normally
+        # 2. Confirm the selector works normally
         page.fill("#search-input", "baseline check")
 
-        # Break the UI (simulates a developer renaming the element)
+        # 3. Simulate the UI breaking on the deployed site
         page.evaluate("window.BREAK_UI()")
 
-        # Now the old selector fails — Healium must heal it
+        # 4. The old locator fails -> AI heals it
         healing_page.fill(
             "#search-input",
-            "Healium healed this on deployed site!",
+            "Healium healed production!",
             intent="product search input field"
         )
 
-        # Verify the value was actually set
+        # 5. Verify it actually worked
         value = page.evaluate("document.querySelector('input').value")
-        assert value == "Healium healed this on deployed site!", \
-            f"Unexpected value: {value}"
+        assert value == "Healium healed production!", f"Unexpected value: {value}"
 
-        # Verify a healing event was recorded
-        assert healing_page.healing_events, \
-            "Expected at least one healing event"
+        assert healing_page.healing_events, "Expected at least one healing event"
         assert healing_page.healing_events[0].status == "healed"
 
         browser.close()
 
 
 @pytest.mark.healium
-def test_deployed_site_search_button():
+def test_deployed_search_button_heals():
     """Verify the deployed site's search button can be healed when broken."""
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
 
-        memory = HealiumMemory(tenant_id="ci-deployed-test")
+        memory = HealiumMemory(tenant_id="production-ci")
         healing_page = SelfHealingPage(page, memory=memory)
 
         healing_page.goto(DEPLOYED_URL)

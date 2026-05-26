@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cognitive-healium"
+version = "2.0.0"
+description = "Agentic Self-Healing Test Automation Engine"
+requires-python = ">=3.10"
+dependencies = [
+    "playwright>=1.45.0",
+    "selenium",
+    "webdriver-manager",
+    "chromadb",
+    "beautifulsoup4==4.12.3",
+    "lxml==5.3.0",
+    "python-dotenv==1.0.1",
+    "fastapi",
+    "uvicorn",
+    "requests",
+    "redis",
+    "psycopg2-binary",
+    "boto3",
+    "langgraph>=0.2.28",
+    "langchain-core>=0.3.5",
+    "langchain-groq>=0.2.1",
+    "pytest",
+    "rich",
+]
+
+[tool.setuptools.packages.find]
+include = ["engine*", "healing_agent*", "mcp_client*", "healium_plugin*"]
