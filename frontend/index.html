@@ -14,6 +14,7 @@
 <body>
   <h2>Healium Test Page</h2>
 
+  <!-- DEV CHANGED THE ID HERE FROM "search-input" to "search-bar-v3" -->
   <input
     id="search-bar-v3"
     class="search-bar"
@@ -31,24 +32,6 @@
       document.getElementById('result').textContent =
         val ? 'Searched for: ' + val : 'Empty search';
     }
-
-    // Used by tests to simulate a UI breaking change
-    window.BREAK_UI = function() {
-      const el = document.getElementById('search-input');
-      if (el) {
-        el.removeAttribute('id');
-        el.classList.remove('search-bar');
-        el.classList.add('search-bar-v2');
-      }
-      const btn = document.getElementById('search-btn');
-      if (btn) {
-        btn.removeAttribute('id');
-        btn.classList.add('submit-btn-v2');
-      }
-    };
   </script>
 </body>
 </html>
-
-
-
