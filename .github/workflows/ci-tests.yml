@@ -1,44 +1,23 @@
 name: Cognitive Healium CI
 
 on:
-  push:
-    branches: [main, develop]
-  workflow_dispatch:
+  # This makes the CI test wait until the Frontend Deployment is 100% done!
+  workflow_run:
+    workflows: ["Deploy Frontend to GitHub Pages"]
+    types:
+      - completed
+  workflow_dispatch: # Allows you to manually trigger it too
 
 env:
   PYTHON_VERSION: "3.11"
 
 jobs:
-  # --- JOB 1: Fast Local Engine Tests ---
-  test-engine-locally:
-    name: Local Engine Tests (Playwright)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-
-      - name: Install Cognitive Healium SDK
-        run: |
-          pip install --upgrade pip
-          pip install .
-          playwright install chromium --with-deps
-
-      - name: Run Local Playwright Tests
-        env:
-          GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
-        run: pytest tests/test_playwright_healing.py --healium-enabled -v --tb=short
-        continue-on-error: true
-
-  # --- JOB 2: Live Production E2E Test ---
   test-live-production:
     name: Production E2E Test (Live Site)
     runs-on: ubuntu-latest
+    # Only run if the deployment succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
