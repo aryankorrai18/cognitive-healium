@@ -9,6 +9,7 @@ description = "Agentic Self-Healing Test Automation Engine"
 requires-python = ">=3.10"
 dependencies = [
     "playwright>=1.45.0",
+    "pytest-playwright",       # <--- ADD THIS LINE HERE!
     "selenium",
     "webdriver-manager",
     "chromadb",
